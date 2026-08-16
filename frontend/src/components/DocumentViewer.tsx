@@ -18,11 +18,16 @@ const DEFAULT_WIDTH = 400;
 
 interface DocumentViewerProps {
 	document: Document | null;
+	currentPage: number;
+	onPageChange: (page: number) => void;
 }
 
-export function DocumentViewer({ document }: DocumentViewerProps) {
+export function DocumentViewer({
+	document,
+	currentPage,
+	onPageChange,
+}: DocumentViewerProps) {
 	const [numPages, setNumPages] = useState<number>(0);
-	const [currentPage, setCurrentPage] = useState(1);
 	const [pdfLoading, setPdfLoading] = useState(true);
 	const [pdfError, setPdfError] = useState<string | null>(null);
 	const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -147,7 +152,7 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
 						size="icon"
 						className="h-7 w-7"
 						disabled={currentPage <= 1}
-						onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+						onClick={() => onPageChange(Math.max(1, currentPage - 1))}
 					>
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
@@ -159,7 +164,7 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
 						size="icon"
 						className="h-7 w-7"
 						disabled={currentPage >= numPages}
-						onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
+						onClick={() => onPageChange(Math.min(numPages, currentPage + 1))}
 					>
 						<ChevronRight className="h-4 w-4" />
 					</Button>

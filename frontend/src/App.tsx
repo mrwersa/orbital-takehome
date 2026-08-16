@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChatSidebar } from "./components/ChatSidebar";
 import { ChatWindow } from "./components/ChatWindow";
 import { DocumentViewer } from "./components/DocumentViewer";
@@ -32,6 +32,15 @@ export default function App() {
 		upload,
 		refresh: refreshDocument,
 	} = useDocument(selectedId);
+
+	// Owned here so a citation chip (inside ChatWindow) can move the viewer
+	// to that citation's page. Reset on conversation change so switching
+	// conversations doesn't leave the viewer on a stale page.
+	const [currentPage, setCurrentPage] = useState(1);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedId is an intentional trigger to reset the page on conversation change
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [selectedId]);
 
 	const handleSend = useCallback(
 		async (content: string) => {
@@ -78,9 +87,14 @@ export default function App() {
 					conversationId={selectedId}
 					onSend={handleSend}
 					onUpload={handleUpload}
+					onCitationClick={setCurrentPage}
 				/>
 
-				<DocumentViewer document={document} />
+				<DocumentViewer
+					document={document}
+					currentPage={currentPage}
+					onPageChange={setCurrentPage}
+				/>
 			</div>
 		</TooltipProvider>
 	);
