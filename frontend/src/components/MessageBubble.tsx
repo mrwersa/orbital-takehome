@@ -54,11 +54,17 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 				<div className="prose">
 					<Streamdown>{message.content}</Streamdown>
 				</div>
-				{message.sources_cited > 0 && (
-					<p className="mt-1.5 text-xs text-neutral-400">
-						{message.sources_cited} source
-						{message.sources_cited !== 1 ? "s" : ""} cited
-					</p>
+				{message.citations && message.citations.length > 0 && (
+					<div className="mt-1.5 flex flex-wrap gap-1.5">
+						{message.citations.map((citation) => (
+							<span
+								key={`${citation.page}-${citation.quote}`}
+								className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-500"
+							>
+								Page {citation.page}
+							</span>
+						))}
+					</div>
 				)}
 			</div>
 		</motion.div>
