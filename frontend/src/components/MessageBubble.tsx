@@ -55,7 +55,13 @@ export function MessageBubble({
 				<Bot className="h-4 w-4 text-white" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
-				<div className="prose">
+				<div
+					className={
+						message.answer_supported === false
+							? "prose rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5"
+							: "prose"
+					}
+				>
 					<Streamdown>{message.content}</Streamdown>
 				</div>
 				{message.citations && message.citations.length > 0 && (
