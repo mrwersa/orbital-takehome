@@ -170,7 +170,7 @@ async def send_message(
 
         if document_text and full_response and not had_error:
             try:
-                verified = await verify_answer(document_text, full_response)
+                verified = await verify_answer(document_text, body.content, full_response)
                 citations = verified.citations
                 rejected_quotes = verified.rejected_quotes
                 answer_supported = verified.answer_supported

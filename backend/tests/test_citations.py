@@ -15,7 +15,12 @@ import fitz  # pyright: ignore[reportMissingTypeStubs] — PyMuPDF ships no stub
 import httpx
 import pytest
 
-from takehome.services.citations import CitationProposal, answer_with_citations, verify_citations
+from takehome.services.citations import (
+    CitationProposal,
+    answer_with_citations,
+    verify_answer,
+    verify_citations,
+)
 
 SAMPLE_PDF = (
     Path(__file__).resolve().parents[2] / "sample-docs" / "commercial-lease-100-bishopsgate.pdf"
@@ -86,13 +91,17 @@ def test_citation_absent_from_document_is_dropped(
     assert len(resolved) == 1
 
 
-async def _fake_propose_real_quote(document_text: str, question: str) -> CitationProposal:
+async def _fake_propose_real_quote(
+    document_text: str, question: str, answer: str
+) -> CitationProposal:
     """Stand in for the citation agent: always proposes one quote copied
     verbatim from the document, so resolution is deterministic and network-free."""
     return CitationProposal(supported=True, quotes=[_pick_real_line(document_text)])
 
 
-async def _fake_propose_nothing(document_text: str, question: str) -> CitationProposal:
+async def _fake_propose_nothing(
+    document_text: str, question: str, answer: str
+) -> CitationProposal:
     """Stand in for the citation agent on an unanswerable question: proposes
     no quotes and reports the document doesn't support an answer."""
     return CitationProposal(supported=False, quotes=[])
@@ -126,3 +135,68 @@ async def test_unanswerable_question_produces_not_found(document_text: str) -> N
 
     assert result.answer_supported is False
     assert result.citations == []
+
+
+async def test_unsupported_answer_returns_no_citations_even_if_a_quote_resolves(
+    document_text: str,
+) -> None:
+    """Regression: asked for the tenant's VAT number, the model correctly
+    said the document doesn't contain it (supported=False) but proposed a
+    quote from page 3 anyway. A chip means "the answer is here" — attaching
+    one to an answer the proposer itself flagged as unsupported is a
+    contradiction, and that's worse than no citation at all. supported=False
+    must always win, even when the quote it came with would otherwise
+    resolve. The quote is still kept in rejected_quotes for the record.
+    """
+    real_quote = _pick_real_line(document_text)
+
+    async def fake_propose_unsupported_but_quoted(
+        document_text: str, question: str, answer: str
+    ) -> CitationProposal:
+        return CitationProposal(supported=False, quotes=[real_quote])
+
+    result = await verify_answer(
+        document_text,
+        "What is the tenant's VAT number?",
+        "The document does not contain the tenant's VAT number.",
+        propose_citations=fake_propose_unsupported_but_quoted,
+    )
+
+    assert result.answer_supported is False
+    assert result.citations == []
+    assert result.rejected_quotes == [real_quote]
+
+
+async def test_citation_proposer_receives_the_original_question(document_text: str) -> None:
+    """Regression: asked for the tenant's VAT registration number, the chat
+    agent correctly answered that the document doesn't contain it — but also
+    mentioned, in passing, the Tenant's company registration number, which
+    genuinely is in the document. The citation agent, seeing only the answer
+    text, judged the whole answer "supported" because that incidental fact
+    checks out — it had no way to know the actual question was about a VAT
+    number specifically, not a company registration number.
+
+    The fix is for the proposer to receive the original question alongside
+    the answer, so it can judge support against what was actually asked. This
+    test locks in that the question reaches the proposer at all; it can't
+    unit-test the real model's judgment, only that the wiring carries the
+    question through answer_with_citations -> verify_answer -> the proposer
+    call, instead of silently dropping it as it did before.
+    """
+    received: dict[str, str] = {}
+
+    async def recording_propose_citations(
+        document_text: str, question: str, answer: str
+    ) -> CitationProposal:
+        received["question"] = question
+        return CitationProposal(supported=False, quotes=[])
+
+    question = "What is the tenant's VAT registration number?"
+    result = await answer_with_citations(
+        document_text=document_text,
+        question=question,
+        propose_citations=recording_propose_citations,
+    )
+
+    assert received["question"] == question
+    assert result.answer_supported is False

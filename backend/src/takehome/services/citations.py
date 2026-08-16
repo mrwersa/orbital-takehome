@@ -63,7 +63,7 @@ class VerifiedAnswer(BaseModel):
     answer_supported: bool
 
 
-ProposeCitations = Callable[[str, str], Awaitable[CitationProposal]]
+ProposeCitations = Callable[[str, str, str], Awaitable[CitationProposal]]
 
 
 def verify_citations(document_text: str, quotes: list[str]) -> list[Citation]:
@@ -94,16 +94,24 @@ def verify_citations(document_text: str, quotes: list[str]) -> list[Citation]:
 
 async def verify_answer(
     document_text: str,
+    question: str,
     answer: str,
     propose_citations: ProposeCitations | None = None,
 ) -> VerifiedAnswer:
-    """Check an already-generated answer against document_text.
+    """Check an already-generated answer to question against document_text.
 
     This is the one place "propose, then verify, then decide support" is
     implemented — used both by answer_with_citations below (which also
     generates the answer) and by the message route (which already has one
     from streaming, and must not generate a second, possibly different,
     answer just to check it).
+
+    question is passed to the proposer alongside the answer: judging
+    "supported" from the answer text alone lets a true-but-incidental fact
+    (e.g. a company registration number mentioned in passing) make an
+    otherwise-unsupported answer (e.g. "the document has no VAT number")
+    look supported. The proposer needs to know what was actually asked to
+    tell the difference.
 
     propose_citations supplies the candidate quotes; it defaults to the real
     citation agent, and callers can pass a fake here to stay deterministic
@@ -114,6 +122,14 @@ async def verify_answer(
     the answer, or none of its proposed quotes actually resolve,
     answer_supported is False — that is a distinct, deliberate state, not an
     answer that merely happens to carry zero citations.
+
+    supported=False always wins, even if the proposer also handed back
+    quotes that would otherwise resolve. A chip means "the answer is here";
+    attaching one to an answer the proposer itself flagged as unsupported
+    would be a contradiction, which is worse than showing no citation at
+    all. Those quotes are still recorded in rejected_quotes — proposed, and
+    discarded — they're just never checked against the document, since
+    whether they'd resolve doesn't matter once supported is False.
     """
     if propose_citations is None:
         # Local import: takehome.services.llm imports CitationProposal from
@@ -126,13 +142,21 @@ async def verify_answer(
     else:
         proposer = propose_citations
 
-    proposal = await proposer(document_text, answer)
+    proposal = await proposer(document_text, question, answer)
+
+    if not proposal.supported:
+        return VerifiedAnswer(
+            citations=[],
+            rejected_quotes=[quote.strip() for quote in proposal.quotes],
+            answer_supported=False,
+        )
+
     resolved = verify_citations(document_text, proposal.quotes)
     resolved_quotes = {citation.quote for citation in resolved}
     rejected_quotes = [
         quote.strip() for quote in proposal.quotes if quote.strip() not in resolved_quotes
     ]
-    answer_supported = proposal.supported and len(resolved) > 0
+    answer_supported = len(resolved) > 0
 
     return VerifiedAnswer(
         citations=resolved,
@@ -168,7 +192,7 @@ async def answer_with_citations(
         # and answer_supported, not on content.
         content = ""
 
-    verified = await verify_answer(document_text, content, propose_citations)
+    verified = await verify_answer(document_text, question, content, propose_citations)
 
     return CitedAnswer(
         content=content,

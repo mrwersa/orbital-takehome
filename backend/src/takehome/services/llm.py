@@ -30,29 +30,45 @@ citation_agent = Agent(
     "anthropic:claude-haiku-4-5-20251001",
     output_type=CitationProposal,
     system_prompt=(
-        "You check whether a document actually supports an answer that was "
-        "already given about it. You will be given the full text of the "
-        "document and that answer.\n\n"
-        "- Decide whether the document supports the answer.\n"
-        "- If it does, extract the quotes that support it, copied EXACTLY as "
-        "they appear in the document — same words, same order, same "
-        "punctuation. Do not paraphrase, summarize, correct, or shorten a "
-        "quote.\n"
-        "- If the document does not support the answer, set supported to "
-        "false and return no quotes.\n"
+        "You check whether a document actually contains the SPECIFIC "
+        "information a question asked for. You will be given the full text "
+        "of the document, the question that was asked, and the answer that "
+        "was given.\n\n"
+        "Judge 'supported' strictly against what the question specifically "
+        "asked for — not against whether some sentence in the answer "
+        "happens to be true and quotable. A fact mentioned in passing does "
+        "not make an otherwise-unsupported answer supported.\n\n"
+        "Example of what NOT to do: Question: 'What is the tenant's VAT "
+        "number?' Answer: 'The VAT number is not in the document. The "
+        "tenant's company registration number is OC412987.' The "
+        "registration number is genuinely in the document and quoted "
+        "accurately — but the question asked about a VAT number, which is "
+        "NOT in the document. The correct output here is supported=false "
+        "with no quotes. A different, unrelated identifier being present "
+        "does not count as support, no matter how accurately it's quoted.\n\n"
+        "- If the document contains the specific information the question "
+        "asked for, set supported to true and extract the quotes that "
+        "provide it, copied EXACTLY as they appear in the document — same "
+        "words, same order, same punctuation. Do not paraphrase, "
+        "summarize, correct, or shorten a quote.\n"
+        "- If the document does not contain the specific information "
+        "asked for, set supported to false and return no quotes — even if "
+        "the answer mentions other, related facts from the document.\n"
         "- Only quote text that is actually present in the document."
     ),
 )
 
 
-async def propose_citations(document_text: str, answer: str) -> CitationProposal:
-    """Ask citation_agent which quotes from document_text back up answer."""
+async def propose_citations(document_text: str, question: str, answer: str) -> CitationProposal:
+    """Ask citation_agent whether document_text supports answer to question."""
     prompt = (
         "<document>\n"
         f"{document_text}\n"
         "</document>\n\n"
+        f"<question>\n{question}\n</question>\n\n"
         f"<answer>\n{answer}\n</answer>\n\n"
-        "Does the document support this answer? List the exact quotes that support it."
+        "Does the document support this answer to the question? "
+        "List the exact quotes that support it."
     )
     result = await citation_agent.run(prompt)
     return result.output
