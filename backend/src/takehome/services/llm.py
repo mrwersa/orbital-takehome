@@ -5,7 +5,9 @@ from collections.abc import AsyncIterator
 
 from pydantic_ai import Agent
 
-from takehome.config import settings  # noqa: F401 — triggers ANTHROPIC_API_KEY export
+from takehome.config import (
+    settings,  # noqa: F401 — triggers ANTHROPIC_API_KEY export  # pyright: ignore[reportUnusedImport]
+)
 
 agent = Agent(
     "anthropic:claude-haiku-4-5-20251001",

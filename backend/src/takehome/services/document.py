@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 import uuid
+from typing import cast
 
-import fitz  # PyMuPDF
+import fitz  # pyright: ignore[reportMissingTypeStubs] — PyMuPDF ships no stubs
 import structlog
 from fastapi import UploadFile
 from sqlalchemy import select
@@ -68,7 +69,7 @@ async def upload_document(
         pages: list[str] = []
         for page_num in range(page_count):
             page = doc[page_num]
-            text = page.get_text()  # type: ignore[union-attr]
+            text = cast(str, page.get_text())  # type: ignore[union-attr]
             if text.strip():
                 pages.append(f"--- Page {page_num + 1} ---\n{text}")
         extracted_text = "\n\n".join(pages)
