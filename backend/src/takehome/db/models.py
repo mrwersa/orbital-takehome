@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -43,6 +45,16 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String)  # "user", "assistant", "system"
     content: Mapped[str] = mapped_column(Text)
     sources_cited: Mapped[int] = mapped_column(Integer, default=0)
+    # Resolved citations (quote + page), verified against the stored document
+    # text. Sent to the client as-is.
+    citations: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    # Quotes the model proposed that did NOT resolve. Kept for the record —
+    # never serialized into an API response.
+    rejected_quotes: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    # None when citation checking wasn't run at all (no document, or an
+    # error before an answer existed) — distinct from False, which means
+    # checking ran and the document did not support the answer.
+    answer_supported: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")

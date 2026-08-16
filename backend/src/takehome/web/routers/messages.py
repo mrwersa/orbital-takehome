@@ -13,9 +13,10 @@ from starlette.responses import StreamingResponse
 
 from takehome.db.models import Message
 from takehome.db.session import get_session
+from takehome.services.citations import Citation, verify_answer
 from takehome.services.conversation import get_conversation, update_conversation
 from takehome.services.document import get_document_for_conversation
-from takehome.services.llm import chat_with_document, count_sources_cited, generate_title
+from takehome.services.llm import chat_with_document, generate_title
 
 logger = structlog.get_logger()
 
@@ -33,6 +34,8 @@ class MessageOut(BaseModel):
     role: str
     content: str
     sources_cited: int
+    citations: list[Citation] = []
+    answer_supported: bool | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -76,6 +79,8 @@ async def list_messages(
             role=m.role,
             content=m.content,
             sources_cited=m.sources_cited,
+            citations=[Citation.model_validate(c) for c in m.citations],
+            answer_supported=m.answer_supported,
             created_at=m.created_at,
         )
         for m in messages
@@ -131,6 +136,7 @@ async def send_message(
     async def event_stream() -> AsyncIterator[str]:
         """Generate SSE events with the streamed LLM response."""
         full_response = ""
+        had_error = False
 
         try:
             async for chunk in chat_with_document(
@@ -147,13 +153,41 @@ async def send_message(
                 "Error during LLM streaming",
                 conversation_id=conversation_id,
             )
+            had_error = True
             error_msg = "I'm sorry, an error occurred while generating a response. Please try again."
             full_response = error_msg
             event_data = json.dumps({"type": "content", "content": error_msg})
             yield f"data: {event_data}\n\n"
 
-        # Count sources cited in the full response
-        sources = count_sources_cited(full_response)
+        # Verify citations against the stored document text. Skipped (not
+        # just empty) when there's no document or the answer is our own
+        # canned error message — there's nothing real to check either way,
+        # and answer_supported stays None to mark "not checked" rather than
+        # "checked and unsupported".
+        citations: list[Citation] = []
+        rejected_quotes: list[str] = []
+        answer_supported: bool | None = None
+
+        if document_text and full_response and not had_error:
+            try:
+                verified = await verify_answer(document_text, full_response)
+                citations = verified.citations
+                rejected_quotes = verified.rejected_quotes
+                answer_supported = verified.answer_supported
+                logger.info(
+                    "Citations verified",
+                    conversation_id=conversation_id,
+                    proposed=len(citations) + len(rejected_quotes),
+                    resolved=len(citations),
+                    dropped=len(rejected_quotes),
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to verify citations",
+                    conversation_id=conversation_id,
+                )
+
+        sources = len(citations)
 
         # Save the assistant message to the database.
         # We need a fresh session since the outer one may have been closed.
@@ -165,6 +199,9 @@ async def send_message(
                 role="assistant",
                 content=full_response,
                 sources_cited=sources,
+                citations=[c.model_dump() for c in citations],
+                rejected_quotes=rejected_quotes,
+                answer_supported=answer_supported,
             )
             save_session.add(assistant_message)
             await save_session.commit()
@@ -186,7 +223,10 @@ async def send_message(
                         conversation_id=conversation_id,
                     )
 
-            # Send the final message event with the complete assistant message
+            # Send the final message event with the complete assistant message.
+            # rejected_quotes is persisted (above) but deliberately never
+            # goes out over the wire — it's a record of what we rejected,
+            # not something the UI shows.
             message_data = json.dumps(
                 {
                     "type": "message",
@@ -196,6 +236,8 @@ async def send_message(
                         "role": assistant_message.role,
                         "content": assistant_message.content,
                         "sources_cited": assistant_message.sources_cited,
+                        "citations": assistant_message.citations,
+                        "answer_supported": assistant_message.answer_supported,
                         "created_at": assistant_message.created_at.isoformat(),
                     },
                 }

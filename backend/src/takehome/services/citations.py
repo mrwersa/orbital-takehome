@@ -52,6 +52,17 @@ class CitedAnswer(BaseModel):
     answer_supported: bool
 
 
+class VerifiedAnswer(BaseModel):
+    """What checking an already-generated answer against the document
+    produces: the citations worth showing, the quotes worth keeping a
+    record of but never showing, and whether the document backs the
+    answer at all."""
+
+    citations: list[Citation]
+    rejected_quotes: list[str]
+    answer_supported: bool
+
+
 ProposeCitations = Callable[[str, str], Awaitable[CitationProposal]]
 
 
@@ -81,16 +92,22 @@ def verify_citations(document_text: str, quotes: list[str]) -> list[Citation]:
     return resolved
 
 
-async def answer_with_citations(
+async def verify_answer(
     document_text: str,
-    question: str,
+    answer: str,
     propose_citations: ProposeCitations | None = None,
-) -> CitedAnswer:
-    """Answer question against document_text and attach verified citations.
+) -> VerifiedAnswer:
+    """Check an already-generated answer against document_text.
 
-    propose_citations supplies the candidate quotes to verify; it defaults to
-    the real citation agent, and tests can pass a fake here to stay
-    deterministic and network-free.
+    This is the one place "propose, then verify, then decide support" is
+    implemented — used both by answer_with_citations below (which also
+    generates the answer) and by the message route (which already has one
+    from streaming, and must not generate a second, possibly different,
+    answer just to check it).
+
+    propose_citations supplies the candidate quotes; it defaults to the real
+    citation agent, and callers can pass a fake here to stay deterministic
+    and network-free.
 
     A citation only ever comes from verify_citations, never from the
     proposer directly. If the proposer judges the document doesn't support
@@ -103,14 +120,46 @@ async def answer_with_citations(
         # this module, so importing it back at module load time would
         # cycle. By the time this function runs, both modules have already
         # finished loading, so the cycle never actually happens.
-        from takehome.services.llm import chat_with_document
         from takehome.services.llm import propose_citations as real_propose_citations
+
+        proposer = real_propose_citations
+    else:
+        proposer = propose_citations
+
+    proposal = await proposer(document_text, answer)
+    resolved = verify_citations(document_text, proposal.quotes)
+    resolved_quotes = {citation.quote for citation in resolved}
+    rejected_quotes = [
+        quote.strip() for quote in proposal.quotes if quote.strip() not in resolved_quotes
+    ]
+    answer_supported = proposal.supported and len(resolved) > 0
+
+    return VerifiedAnswer(
+        citations=resolved,
+        rejected_quotes=rejected_quotes,
+        answer_supported=answer_supported,
+    )
+
+
+async def answer_with_citations(
+    document_text: str,
+    question: str,
+    propose_citations: ProposeCitations | None = None,
+) -> CitedAnswer:
+    """Answer question against document_text and attach verified citations.
+
+    propose_citations supplies the candidate quotes to verify; it defaults to
+    the real citation agent, and tests can pass a fake here to stay
+    deterministic and network-free.
+    """
+    if propose_citations is None:
+        # Same deferred-import reasoning as in verify_answer above.
+        from takehome.services.llm import chat_with_document
 
         content_parts: list[str] = []
         async for chunk in chat_with_document(question, document_text, []):
             content_parts.append(chunk)
         content = "".join(content_parts)
-        proposer = real_propose_citations
     else:
         # A caller supplying propose_citations is opting out of the real
         # model entirely, so nothing is generated here for it to check —
@@ -118,10 +167,11 @@ async def answer_with_citations(
         # to stay deterministic and offline, and only assert on citations
         # and answer_supported, not on content.
         content = ""
-        proposer = propose_citations
 
-    proposal = await proposer(document_text, content)
-    resolved = verify_citations(document_text, proposal.quotes)
-    answer_supported = proposal.supported and len(resolved) > 0
+    verified = await verify_answer(document_text, content, propose_citations)
 
-    return CitedAnswer(content=content, citations=resolved, answer_supported=answer_supported)
+    return CitedAnswer(
+        content=content,
+        citations=verified.citations,
+        answer_supported=verified.answer_supported,
+    )
