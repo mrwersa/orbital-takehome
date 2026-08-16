@@ -8,6 +8,7 @@ from pydantic_ai import Agent
 from takehome.config import (
     settings,  # noqa: F401 — triggers ANTHROPIC_API_KEY export  # pyright: ignore[reportUnusedImport]
 )
+from takehome.services.citations import CitationProposal
 
 agent = Agent(
     "anthropic:claude-haiku-4-5-20251001",
@@ -22,6 +23,40 @@ agent = Agent(
         "- When you reference specific content, mention the section, clause, or page."
     ),
 )
+
+# Separate agent, separate concern: given an answer already produced by `agent`
+# above, decide whether the document backs it up and which exact quotes do.
+# Structured output_type guarantees the shape instead of parsing free text.
+citation_agent = Agent(
+    "anthropic:claude-haiku-4-5-20251001",
+    output_type=CitationProposal,
+    system_prompt=(
+        "You check whether a document actually supports an answer that was "
+        "already given about it. You will be given the full text of the "
+        "document and that answer.\n\n"
+        "- Decide whether the document supports the answer.\n"
+        "- If it does, extract the quotes that support it, copied EXACTLY as "
+        "they appear in the document — same words, same order, same "
+        "punctuation. Do not paraphrase, summarize, correct, or shorten a "
+        "quote.\n"
+        "- If the document does not support the answer, set supported to "
+        "false and return no quotes.\n"
+        "- Only quote text that is actually present in the document."
+    ),
+)
+
+
+async def propose_citations(document_text: str, answer: str) -> CitationProposal:
+    """Ask citation_agent which quotes from document_text back up answer."""
+    prompt = (
+        "<document>\n"
+        f"{document_text}\n"
+        "</document>\n\n"
+        f"<answer>\n{answer}\n</answer>\n\n"
+        "Does the document support this answer? List the exact quotes that support it."
+    )
+    result = await citation_agent.run(prompt)
+    return result.output
 
 
 async def generate_title(user_message: str) -> str:
