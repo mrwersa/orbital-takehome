@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import NoReturn
+from typing import NoReturn, cast
 
-import fitz  # pymupdf
+import fitz  # pyright: ignore[reportMissingTypeStubs] — PyMuPDF ships no stubs
 import httpx
 import pytest
 
@@ -33,7 +33,7 @@ def _extract_document_text(pdf_path: Path) -> str:
     doc = fitz.open(pdf_path)
     pages: list[str] = []
     for page_num in range(len(doc)):
-        text = doc[page_num].get_text()  # type: ignore[union-attr]
+        text = cast(str, doc[page_num].get_text())  # type: ignore[union-attr]
         if text.strip():
             pages.append(f"--- Page {page_num + 1} ---\n{text}")
     doc.close()

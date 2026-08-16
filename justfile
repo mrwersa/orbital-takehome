@@ -79,8 +79,8 @@ fmt: fmt-backend fmt-frontend
 
 # Python checks
 check-backend:
-    docker compose exec backend uv run ruff check backend/src
-    docker compose exec backend uv run pyright backend/src
+    docker compose exec backend uv run ruff check backend/src backend/tests
+    docker compose exec backend uv run pyright backend/src backend/tests
 
 # Run backend tests
 test:
