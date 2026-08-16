@@ -82,6 +82,10 @@ check-backend:
     docker compose exec backend uv run ruff check backend/src
     docker compose exec backend uv run pyright backend/src
 
+# Run backend tests
+test:
+    docker compose exec backend uv run pytest
+
 # Format Python
 fmt-backend:
     docker compose exec backend uv run ruff format backend/src
