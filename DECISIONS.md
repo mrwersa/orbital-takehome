@@ -139,13 +139,27 @@ as "20%" — the point estimate moves with how runs happen to be paired,
 and the interval is the part that is actually established.
 
 So the chip the user sees is measurably unstable, while the supported
-flag above it is not measurably unstable and also not certified stable.
-Those are different claims with different consequences, and I could not
-have separated them by reading the eval output. That is the entire reason
-for running an instrument over it instead of eyeballing it, and it is the
-sequencing mistake I made once already: build the thing that decides, then
-discover afterwards that nobody had established whether its inputs were
-stable enough for the decision to mean anything.
+flag above it is neither measurably unstable nor certified stable. Those
+are different claims with different consequences.
+
+To be straight about what the instrument added, since it is easy to
+overstate: reading the runs by eye already told me the verdicts held and
+the citations moved. What it could not tell me is whether three distinct
+citation sets in ten runs is a real rate or an artefact of ten samples,
+because three in ten is equally consistent with a true rate of two
+percent that surfaced twice. The lower bound clearing the target is what
+licensed calling it stochastic, and the same arithmetic in the other
+direction is what stopped me calling zero flips stable. Small samples
+mislead symmetrically and eyeballing is wrong in both directions at once.
+
+The other half of the value is not insight at all, it is that the check
+is now a command with pass, fail and undecided outcomes that somebody who
+was not in the room can run. That is the same argument as the rubric over
+the judge model: not sharper than a careful human, but replayable and
+arguable. And it is the sequencing mistake I have made before, which is
+why I went looking — build the thing that decides, then discover
+afterwards that nobody established whether its inputs were stable enough
+for the decision to mean anything.
 
 Two pieces of off-label use worth declaring. The layer that accepts a
 list is meant for tool-call trajectories and compares them in order,
