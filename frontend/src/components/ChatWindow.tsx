@@ -17,6 +17,7 @@ interface ChatWindowProps {
 	onSend: (content: string) => void;
 	onUpload: (file: File) => void;
 	onCitationClick?: (page: number) => void;
+	currentPage: number;
 }
 
 export function ChatWindow({
@@ -31,6 +32,7 @@ export function ChatWindow({
 	onSend,
 	onUpload,
 	onCitationClick,
+	currentPage,
 }: ChatWindowProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -105,6 +107,7 @@ export function ChatWindow({
 							key={message.id}
 							message={message}
 							onCitationClick={onCitationClick}
+							currentPage={currentPage}
 						/>
 					))}
 					{streaming && (

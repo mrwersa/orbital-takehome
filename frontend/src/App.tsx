@@ -90,6 +90,7 @@ export default function App() {
 					onSend={handleSend}
 					onUpload={handleUpload}
 					onCitationClick={setCurrentPage}
+					currentPage={currentPage}
 				/>
 
 				<DocumentViewer

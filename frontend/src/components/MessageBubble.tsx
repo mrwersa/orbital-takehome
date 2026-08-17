@@ -13,14 +13,25 @@ const QUOTE_CLAMP_THRESHOLD = 130;
 interface CitationCardProps {
 	citation: Citation;
 	onCitationClick?: (page: number) => void;
+	isActive: boolean;
 }
 
-function CitationCard({ citation, onCitationClick }: CitationCardProps) {
+function CitationCard({
+	citation,
+	onCitationClick,
+	isActive,
+}: CitationCardProps) {
 	const [expanded, setExpanded] = useState(false);
 	const isLong = citation.quote.length > QUOTE_CLAMP_THRESHOLD;
 
 	return (
-		<div className="rounded-lg border border-neutral-200 bg-white text-xs transition-colors hover:border-neutral-300 hover:bg-neutral-50">
+		<div
+			className={`rounded-lg border text-xs transition-colors hover:bg-neutral-50 ${
+				isActive
+					? "border-neutral-900 bg-neutral-50"
+					: "border-neutral-200 bg-white hover:border-neutral-300"
+			}`}
+		>
 			<button
 				type="button"
 				onClick={() => onCitationClick?.(citation.page)}
@@ -55,11 +66,13 @@ function CitationCard({ citation, onCitationClick }: CitationCardProps) {
 interface MessageBubbleProps {
 	message: Message;
 	onCitationClick?: (page: number) => void;
+	currentPage: number;
 }
 
 export function MessageBubble({
 	message,
 	onCitationClick,
+	currentPage,
 }: MessageBubbleProps) {
 	if (message.role === "system") {
 		return (
@@ -124,6 +137,7 @@ export function MessageBubble({
 								key={`${citation.page}-${citation.quote}`}
 								citation={citation}
 								onCitationClick={onCitationClick}
+								isActive={citation.page === currentPage}
 							/>
 						))}
 					</div>
