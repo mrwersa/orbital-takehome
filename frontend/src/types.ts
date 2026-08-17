@@ -9,7 +9,6 @@ export interface Conversation {
 export interface Citation {
 	quote: string;
 	page: number;
-	clause?: string | null;
 }
 
 // A citation identified by which message it belongs to and its position
