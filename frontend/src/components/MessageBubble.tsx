@@ -15,7 +15,7 @@ const CITATION_STAGGER_SECONDS = 0.04;
 
 interface CitationCardProps {
 	citation: Citation;
-	onCitationClick?: (page: number) => void;
+	onCitationClick?: (citation: Citation) => void;
 	isActive: boolean;
 	staggerIndex: number;
 }
@@ -45,7 +45,7 @@ function CitationCard({
 		>
 			<button
 				type="button"
-				onClick={() => onCitationClick?.(citation.page)}
+				onClick={() => onCitationClick?.(citation)}
 				className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left"
 			>
 				<span className="mt-0.5 flex-shrink-0 rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-white">
@@ -76,14 +76,16 @@ function CitationCard({
 
 interface MessageBubbleProps {
 	message: Message;
-	onCitationClick?: (page: number) => void;
+	onCitationClick?: (citation: Citation) => void;
 	currentPage: number;
+	activeCitation: Citation | null;
 }
 
 export function MessageBubble({
 	message,
 	onCitationClick,
 	currentPage,
+	activeCitation,
 }: MessageBubbleProps) {
 	if (message.role === "system") {
 		return (
@@ -148,7 +150,11 @@ export function MessageBubble({
 								key={`${citation.page}-${citation.quote}`}
 								citation={citation}
 								onCitationClick={onCitationClick}
-								isActive={citation.page === currentPage}
+								isActive={
+									currentPage === citation.page &&
+									activeCitation?.page === citation.page &&
+									activeCitation?.quote === citation.quote
+								}
 								staggerIndex={index}
 							/>
 						))}

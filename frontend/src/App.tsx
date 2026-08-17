@@ -6,6 +6,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { useConversations } from "./hooks/use-conversations";
 import { useDocument } from "./hooks/use-document";
 import { useMessages } from "./hooks/use-messages";
+import type { Citation } from "./types";
 
 export default function App() {
 	const {
@@ -38,10 +39,21 @@ export default function App() {
 	// to that citation's page. Reset on conversation change so switching
 	// conversations doesn't leave the viewer on a stale page.
 	const [currentPage, setCurrentPage] = useState(1);
+	// Which specific citation was last clicked, so a click on one citation
+	// doesn't also mark every other citation elsewhere in the conversation
+	// that happens to cite the same page -- currentPage alone can't tell
+	// those apart, since it's just a number. Reset alongside currentPage.
+	const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedId is an intentional trigger to reset the page on conversation change
 	useEffect(() => {
 		setCurrentPage(1);
+		setActiveCitation(null);
 	}, [selectedId]);
+
+	const handleCitationClick = useCallback((citation: Citation) => {
+		setCurrentPage(citation.page);
+		setActiveCitation(citation);
+	}, []);
 
 	const handleSend = useCallback(
 		async (content: string) => {
@@ -89,8 +101,9 @@ export default function App() {
 					conversationId={selectedId}
 					onSend={handleSend}
 					onUpload={handleUpload}
-					onCitationClick={setCurrentPage}
+					onCitationClick={handleCitationClick}
 					currentPage={currentPage}
+					activeCitation={activeCitation}
 				/>
 
 				<DocumentViewer
