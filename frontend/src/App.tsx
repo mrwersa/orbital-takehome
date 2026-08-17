@@ -6,7 +6,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { useConversations } from "./hooks/use-conversations";
 import { useDocument } from "./hooks/use-document";
 import { useMessages } from "./hooks/use-messages";
-import type { Citation } from "./types";
+import type { ActiveCitation } from "./types";
 
 export default function App() {
 	const {
@@ -42,15 +42,19 @@ export default function App() {
 	// Which specific citation was last clicked, so a click on one citation
 	// doesn't also mark every other citation elsewhere in the conversation
 	// that happens to cite the same page -- currentPage alone can't tell
-	// those apart, since it's just a number. Reset alongside currentPage.
-	const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
+	// those apart, since it's just a number. Identified by message too, not
+	// just page+quote: two different messages can genuinely cite the exact
+	// same text on the exact same page. Reset alongside currentPage.
+	const [activeCitation, setActiveCitation] = useState<ActiveCitation | null>(
+		null,
+	);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedId is an intentional trigger to reset the page on conversation change
 	useEffect(() => {
 		setCurrentPage(1);
 		setActiveCitation(null);
 	}, [selectedId]);
 
-	const handleCitationClick = useCallback((citation: Citation) => {
+	const handleCitationClick = useCallback((citation: ActiveCitation) => {
 		setCurrentPage(citation.page);
 		setActiveCitation(citation);
 	}, []);

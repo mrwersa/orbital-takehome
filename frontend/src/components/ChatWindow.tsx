@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
-import type { Citation, Message } from "../types";
+import type { ActiveCitation, Message } from "../types";
 import { ChatInput } from "./ChatInput";
 import { EmptyState } from "./EmptyState";
 import { MessageBubble, StreamingBubble } from "./MessageBubble";
@@ -16,9 +16,9 @@ interface ChatWindowProps {
 	conversationId: string | null;
 	onSend: (content: string) => void;
 	onUpload: (file: File) => void;
-	onCitationClick?: (citation: Citation) => void;
+	onCitationClick?: (citation: ActiveCitation) => void;
 	currentPage: number;
-	activeCitation: Citation | null;
+	activeCitation: ActiveCitation | null;
 }
 
 export function ChatWindow({

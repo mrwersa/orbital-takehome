@@ -3,7 +3,7 @@ import { Bot } from "lucide-react";
 import { useState } from "react";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import type { Citation, Message } from "../types";
+import type { ActiveCitation, Citation, Message } from "../types";
 
 // Above this, a quote is long enough to reliably wrap past two lines at the
 // citation card's width and is worth clamping; below it, the clamp/toggle
@@ -76,9 +76,9 @@ function CitationCard({
 
 interface MessageBubbleProps {
 	message: Message;
-	onCitationClick?: (citation: Citation) => void;
+	onCitationClick?: (citation: ActiveCitation) => void;
 	currentPage: number;
-	activeCitation: Citation | null;
+	activeCitation: ActiveCitation | null;
 }
 
 export function MessageBubble({
@@ -149,9 +149,12 @@ export function MessageBubble({
 							<CitationCard
 								key={`${citation.page}-${citation.quote}`}
 								citation={citation}
-								onCitationClick={onCitationClick}
+								onCitationClick={(clicked) =>
+									onCitationClick?.({ ...clicked, messageId: message.id })
+								}
 								isActive={
 									currentPage === citation.page &&
+									activeCitation?.messageId === message.id &&
 									activeCitation?.page === citation.page &&
 									activeCitation?.quote === citation.quote
 								}
