@@ -227,3 +227,75 @@ with each other, which is a variance question, and none of them treat
 that as a first-class measurement. A graded framework becomes the right
 tool once support is tracked per claim rather than per answer, because
 then there is a real per-claim judgement worth scoring.
+
+## A design pass, run as a prompt rather than by hand
+
+The citation UI worked and looked unfinished. Rather than tidying it by
+hand at the end, in a session with no trail, I wrote the pass as a
+prompt: six ordered changes, the settled decisions it was not allowed to
+reverse named up front, and one explicit exception to the SSE-event
+boundary in `AGENTS.md` for a single additive `verifying` event.
+Everything else stayed inside `frontend/src/components`.
+
+Six commits, forty-three minutes against a forty-minute budget. The
+answer no longer finishes streaming into several seconds of unexplained
+silence: the gap now says the quotes are being checked, and it says so
+only when a check is actually going to run, computed from the same
+condition the verification itself branches on, so the UI cannot announce
+a check that never happens. Long quotes clamp to two lines with a
+keyboard-reachable toggle. The page badge has enough contrast to scan.
+The clicked citation stays marked for as long as the viewer is on its
+page.
+
+Then I made the agent look at what it had built and list what was wrong
+with it before fixing anything, which is the half of a design pass that
+usually gets skipped. That loop found two things I would not have: an
+unbroken quote string overflowing its card, and an in-flight send that
+was never cancelled when the conversation changed. The cheapest-looking
+task on the list, marking the clicked citation, took five commits to get
+the identity right — page, then message and content, then position —
+because "which citation did I click" is not the same question as "which
+page am I looking at".
+
+Span-level highlighting inside the PDF came up again here as the obvious
+next step, and I ruled it out again for the reason above. Polishing the
+presentation of a mechanism that isn't trustworthy at the claim level
+makes it look more trustworthy than it is.
+
+## A clause number I added and took back out
+
+During that pass I attached the clause or sub-clause number to each
+citation, so the badge read `§8.3.1 · p.7` rather than `p.7`. It looked
+like the most useful thing on the card. I removed it four commits later.
+
+The page number is verified: it comes from the marker the extraction
+wrote, at the position where the quote actually matched. The clause
+number was inferred, from the nearest numbered line above the match, so
+on unnumbered or unusually numbered text it could be confidently wrong.
+Rendering both in one pill gives them the same authority, and an
+unverified number wearing the authority of a verified one is exactly the
+failure this feature exists to remove. The pattern was also tuned
+against the sample lease's numbering, which `SPEC.md` section 4 rules
+out for anything in this feature.
+
+The clearest way to see it: `SPEC.md` opens by ruling out any
+sources-cited number that isn't backed by the check, because the
+starter's regex count was a number a lawyer would have trusted and
+shouldn't have. The clause badge was the same mistake in a better
+typeface, and this time mine.
+
+## The clock
+
+Forty-three commits, 20:31 to 02:55, six hours and twenty-four minutes of
+wall clock against a stated two to three. Five gaps of over twenty
+minutes account for three hours and fifty of that, and contiguous
+commit-to-commit work is two hours and thirty-four minutes.
+
+The feature the brief asked for was on screen and clickable at 00:26,
+roughly two hours of that contiguous time in. What came after it was the
+ten-run eval, the stability assessment, this write-up and the design
+pass, and that was a deliberate overspend rather than the feature
+running long. Running each question once and describing what I saw would
+have fitted the budget comfortably. It would also have meant reporting a
+behaviour I had observed a single time as though it were the behaviour,
+which is the thing this whole feature exists to stop the model doing.
