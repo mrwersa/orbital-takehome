@@ -73,9 +73,7 @@ defects no engineer now opens.
 
 The wider result mattered more. The platform became the standard foundation
 other teams build agents on rather than staying my one-off, which is the
-difference between a demo and infrastructure. [FILL_ME: one number — engineering
-hours returned, or median time from defect raised to pull request opened.
-Delete this sentence and the bracket if you do not have one you can defend.]
+difference between a demo and infrastructure.
 
 For users the effect is indirect but real. Low-priority defects are the ones
 that historically sat in a backlog for months. They now get fixed.

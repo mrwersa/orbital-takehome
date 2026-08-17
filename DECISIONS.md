@@ -31,16 +31,17 @@ unchanging document and question. The fourth came back
 `answer_supported=false` with zero citations, for the same question the
 model had just answered correctly and completely three other times.
 That's a worse failure than the one the check was meant to prevent, so it
-was reverted. (That specific question had two clean prior runs earlier in
-this session, not ten — the "reliable beforehand" claim rests on those
-four back-to-back runs showing 3-true-1-false on their own, not on a
-longer track record. A different question, run ten times through
-`scripts/eval.sh`, did show 10/10 consistent citations — but that was
-before the prompt change existed, and it was never re-run against the
-modified prompt to see whether it also regressed.) Current behavior: a
-partial resolve shows the quotes that do resolve and records the rest as
-rejected; `answer_supported` is true whenever at least one proposed quote
-resolves, same as before either attempt.
+was reverted.
+
+To be exact about the evidence: that question had two clean runs earlier
+in the session, not ten, so the case rests on those four back-to-back
+runs on their own. The ten-run result described below is a different
+question, measured before the prompt change existed and never re-run
+against it.
+
+Current behaviour: a partial resolve shows the quotes that do resolve and
+records the rest as rejected; `answer_supported` is true whenever at least
+one proposed quote resolves, same as before either attempt.
 
 **What I'd build next:** the citation agent needs to judge and report
 support per claim, not one `supported` boolean for the whole answer.
@@ -59,3 +60,74 @@ migration to extend the current one), a materially different prompt, and
 UI to show per-claim status rather than a flat citation list. Out of
 scope for this pass — too large to verify before submitting this
 take-home. Left here as the next real piece of work on this feature.
+
+## What the eval measured
+
+`scripts/eval.sh` runs each question ten times, each in a fresh
+conversation with a fresh upload, so no run sees another's answer in its
+history. Two questions: one the lease answers, one it doesn't.
+
+**Answerable** ("when can the tenant end the lease early, and on what
+conditions?"): ten runs produced two distinct citation sets. Nine cited
+the same four provisions of Section 8 on page 7. The tenth cited the same
+provisions with slightly different quote boundaries. So the feature is
+stable on which evidence it finds, and wobbly on exactly where it cuts
+the quote — which is the finding that killed all-or-nothing resolution
+above.
+
+**Unanswerable** ("what is the tenant's VAT registration number?"):
+FILL_ME/10 runs came back `answer_supported=false` with no citations.
+This question was chosen carefully — an earlier candidate asked about a
+service charge cap, and the phrase "service charge" is on page 5, so a
+plausible-looking quote would have resolved. A negative test only tests
+anything if the document really is silent.
+
+The tests verify the mechanism; the eval measures the model. A test
+asserting "the model cites correctly" would be asserting a rate from a
+sample of one, and would go red on someone else's machine for reasons
+that have nothing to do with the code.
+
+## Verification failure degrades to unverified, not to trusted
+
+If the citation call fails or exceeds thirty seconds, `answer_supported`
+is set to `false` and the UI says the document does not confirm the
+answer. The alternative — leaving it unset, which renders identically to
+an ordinary checked answer — means an infrastructure failure silently
+produces an answer that looks verified. The answer itself is persisted
+before verification starts, so a hung check can't lose text the user has
+already read.
+
+## Two findings from the repo, not from my feature
+
+`just check` was red on a clean clone: pyright couldn't run at all,
+missing `libatomic1`. And it only ever covered `backend/src`, so
+`backend/tests` was outside the gate that was supposed to prove the code
+was typed. Both fixed in their own commits before the feature work
+started. There was also no `just test` recipe and no test mount, so
+pytest couldn't collect. A quality gate that doesn't cover the tests
+isn't measuring what its name claims.
+
+## Reviewed by a second model, deliberately
+
+Two instances of the same model fail in correlated ways, so I had Codex
+review the diff cold, with no knowledge of my reasoning. Five findings. I
+took two: citation quote text wasn't visible to the user, which broke a
+promise in SPEC.md, and an unsupported answer's own text didn't
+necessarily say it was unsupported. I declined three as out of scope for
+this pass: claim-level attribution (above), reworking the streaming
+lifecycle, and the partial-resolve change — that last one being the
+finding the agent then implemented twice more after I'd rejected it,
+which is its own lesson about where the decision has to sit.
+
+## Not built, on purpose
+
+Span-level highlighting inside the PDF, multi-document review, and any
+vector store. The first is polish on top of a mechanism that isn't yet
+trustworthy at the claim level. The second is the largest real gap in the
+product, and half-built it would be worse than not attempted. The third
+solves a retrieval problem this app doesn't have at nine pages.
+
+I also considered a spec-driven scaffold for this work and didn't use
+one. At this size it would have produced ceremony rather than control —
+`SPEC.md` plus `AGENTS.md` plus a failing test per slice gave me the same
+guardrails at a fraction of the overhead.
