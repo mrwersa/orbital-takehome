@@ -12,10 +12,10 @@ citation jumps the viewer to its page.
 - **Walkthrough** — LOOM_URL
 
 Measured over ten independent runs against the sample lease
-(`scripts/eval.sh`): the answerable question cited the same four provisions of
-Section 8, page 7, in nine of ten runs, differing in the tenth only in where
-the quotes were cut. The unanswerable question returned no citations and a
-plain not-confirmed state in FILL_ME of ten.
+(`scripts/eval.sh`): every run answering the break-clause question cited page 7
+and nothing else, nine of ten quoting all four relevant provisions of Section 8
+and the tenth quoting one of the four. The unanswerable question returned no
+citations and a plain not-confirmed state in ten of ten.
 
 The original brief follows, unchanged.
 

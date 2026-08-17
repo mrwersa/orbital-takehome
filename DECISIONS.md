@@ -68,16 +68,32 @@ conversation with a fresh upload, so no run sees another's answer in its
 history. Two questions: one the lease answers, one it doesn't.
 
 **Answerable** ("when can the tenant end the lease early, and on what
-conditions?"): ten runs produced two distinct citation sets. Nine cited
-the same four provisions of Section 8 on page 7. The tenth cited the same
-provisions with slightly different quote boundaries. So the feature is
-stable on which evidence it finds, and wobbly on exactly where it cuts
-the quote — which is the finding that killed all-or-nothing resolution
-above.
+conditions?"): ten runs produced three distinct citation sets, and every
+citation in every run resolved against page 7 and no other page. Eight
+runs quoted the same four provisions of Section 8 the same way. A ninth
+quoted the same four but pulled the clause numbers and headings into the
+quotes with them. The tenth quoted one provision of the four.
 
-**Unanswerable** ("what is the tenant's VAT registration number?"):
-FILL_ME/10 runs came back `answer_supported=false` with no citations.
-This question was chosen carefully — an earlier candidate asked about a
+So the feature is stable about where the answer lives and unstable about
+two separate things: where it cuts a quote, and how many of the relevant
+provisions it troubles to quote at all. The second of those is the
+partial-grounding limitation above, caught in the act. That tenth run
+produced an answer covering four provisions with evidence attached to
+one, and nothing in this pipeline can tell that the other three went
+uncited — the answer arrives supported, with a citation that genuinely
+resolves, and the omission is invisible. One run in ten, on the
+best-behaved question I have.
+
+**Unanswerable** ("what is the tenant's VAT registration number?"): 10/10
+runs came back `answer_supported=false` with no citations, and all ten
+said so in their own text as well. That second half matters, because the
+original failure here was an answer that stated the document had no VAT
+number while carrying a citation to page 3 — a company registration
+number mentioned in passing, true in itself and irrelevant to the
+question. Passing the question to the proposer rather than the answer
+alone is what fixed it, and ten runs say it stays fixed.
+
+This question was chosen carefully. An earlier candidate asked about a
 service charge cap, and the phrase "service charge" is on page 5, so a
 plausible-looking quote would have resolved. A negative test only tests
 anything if the document really is silent.
@@ -110,10 +126,10 @@ going to quote a number my own tool declined to stand behind. Settling a
 5% flip rate needs far more runs than this exercise justifies spending.
 
 What it does sharpen is *where* the instability lives. At the verdict
-layer, supported versus not-supported, nothing moved. The variation the
-ten-run eval found sits one level down, in where the model cuts a quote
-out of a provision it has already identified correctly. Those are
-different failures with different costs, and before this they were both
+layer, supported versus not-supported, nothing moved in either question.
+Everything the ten-run eval found sits below that: which provisions get
+quoted, and where each quote is cut. Those are three different failures
+with three different costs, and before separating them out they were all
 just "it varies". Its second check separately confirmed the pipeline is
 discriminating rather than returning a constant, two distinct verdicts
 across two distinct questions, which is a sanity check on the harness and
