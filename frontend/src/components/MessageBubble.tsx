@@ -52,7 +52,7 @@ function CitationCard({
 					p.{citation.page}
 				</span>
 				<span
-					className={`break-words text-neutral-600 ${isLong && !expanded ? "line-clamp-2" : ""}`}
+					className={`min-w-0 break-words text-neutral-600 ${isLong && !expanded ? "line-clamp-2" : ""}`}
 				>
 					"{citation.quote}"
 				</span>
