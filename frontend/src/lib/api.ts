@@ -56,11 +56,13 @@ export async function fetchMessages(
 export async function sendMessage(
 	conversationId: string,
 	content: string,
+	signal?: AbortSignal,
 ): Promise<Response> {
 	const res = await fetch(`${BASE}/conversations/${conversationId}/messages`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ content }),
+		signal,
 	});
 	if (!res.ok) {
 		const text = await res.text().catch(() => "Unknown error");

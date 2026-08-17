@@ -41,6 +41,13 @@ export function useMessages(conversationId: string | null) {
 		async (content: string) => {
 			if (!conversationId || streaming) return;
 
+			// Wired to the cleanup effect above: switching conversations (or
+			// unmounting) aborts this request instead of leaving it running
+			// to completion against a hook instance that's now showing a
+			// different conversation's messages.
+			const controller = new AbortController();
+			abortRef.current = controller;
+
 			const userMessage: Message = {
 				id: `temp-${Date.now()}`,
 				conversation_id: conversationId,
@@ -57,7 +64,11 @@ export function useMessages(conversationId: string | null) {
 			setError(null);
 
 			try {
-				const response = await api.sendMessage(conversationId, content);
+				const response = await api.sendMessage(
+					conversationId,
+					content,
+					controller.signal,
+				);
 
 				if (!response.body) {
 					throw new Error("No response body");
@@ -143,6 +154,12 @@ export function useMessages(conversationId: string | null) {
 				setStreaming(false);
 				setStreamingContent("");
 				setVerifying(false);
+				// Only clear if this call still owns the ref -- a defensive
+				// guard, not a normally-reachable case, since `streaming`
+				// already prevents a second send from starting concurrently.
+				if (abortRef.current === controller) {
+					abortRef.current = null;
+				}
 			}
 		},
 		[conversationId, streaming],
