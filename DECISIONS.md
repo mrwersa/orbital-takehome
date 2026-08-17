@@ -286,15 +286,15 @@ typeface, and this time mine.
 
 ## The clock
 
-Forty-four commits across about six and a half hours of wall clock,
-20:31 to just gone 03:00, against a stated two to three. Five gaps of
-over twenty minutes account for three hours and fifty of that, and
-contiguous commit-to-commit work is a little under three hours.
+The log starts at 20:31 and runs into the small hours, which is roughly
+seven hours of wall clock against a stated two to three. Most of that is
+gaps: five breaks of over twenty minutes account for the better part of
+four hours, and contiguous commit-to-commit work is around three.
 
-Those are rounded on purpose. Any commit that describes the log
-invalidates its own figures the moment it lands, so the exact ones would
-be wrong again by the time you read them. Recount from `git log` rather
-than from this paragraph.
+Those figures are deliberately approximate. A commit that describes the
+log invalidates its own numbers the moment it lands, and the first
+version of this paragraph was stale by one commit before anyone read it.
+Recount from `git log` rather than trusting this.
 
 The feature the brief asked for was on screen and clickable at 00:26,
 roughly two hours of that contiguous time in. What came after it was the
