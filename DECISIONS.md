@@ -87,6 +87,43 @@ asserting "the model cites correctly" would be asserting a rate from a
 sample of one, and would go red on someone else's machine for reasons
 that have nothing to do with the code.
 
+## What the measurement itself is worth
+
+Counting distinct citation sets by eye is fine for spotting that
+something moves. It is not enough to say how much, so I put the collected
+runs through AgentVerity, an open-source library I wrote for deciding
+whether repeated agent decisions are stable enough to trust. It is a
+dev-only dependency here: nothing under `backend/src` imports it, and the
+app runs without it installed. I used its `assess` command specifically,
+which makes no model calls of its own and only reads runs collected
+elsewhere, because I did not want the measuring tool driving the thing
+being measured.
+
+It came back **undecided**, and that is the honest headline. Across three
+repeats of each question nothing flipped: both questions gave the same
+verdict every time, zero disagreements in two comparable pairs. But the
+confidence interval on that flip rate is [0.0%, 65.8%] against a 5%
+precision target, so the tool refuses to certify it and says so in as
+many words. It is right to. Reporting "0% verdict flips" off six runs
+would be exactly the over-claim the library exists to catch, and I am not
+going to quote a number my own tool declined to stand behind. Settling a
+5% flip rate needs far more runs than this exercise justifies spending.
+
+What it does sharpen is *where* the instability lives. At the verdict
+layer, supported versus not-supported, nothing moved. The variation the
+ten-run eval found sits one level down, in where the model cuts a quote
+out of a provision it has already identified correctly. Those are
+different failures with different costs, and before this they were both
+just "it varies". Its second check separately confirmed the pipeline is
+discriminating rather than returning a constant, two distinct verdicts
+across two distinct questions, which is a sanity check on the harness and
+not a stability result.
+
+One integration note, since it says something about the interface: the
+tool will not accept a bare boolean as a decision. Rather than redefine
+`answer_supported`, which should keep meaning what the API returns, the
+JSONL carries a derived `verdict` string alongside it.
+
 ## Verification failure degrades to unverified, not to trusted
 
 If the citation call fails or exceeds thirty seconds, `answer_supported`
