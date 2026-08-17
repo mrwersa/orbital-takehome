@@ -55,6 +55,17 @@ export default function App() {
 		setActiveCitation(citation);
 	}, []);
 
+	// Any page change that didn't come from clicking a citation -- the
+	// viewer's own Prev/Next controls -- clears the marked citation rather
+	// than leaving it to silently reappear if the user pages back to that
+	// same number later. "Keep it marked while the viewer is on that page"
+	// means for as long as that click is still why the page is showing,
+	// not "resurrect it whenever navigation happens to land there again."
+	const handlePageChange = useCallback((page: number) => {
+		setCurrentPage(page);
+		setActiveCitation(null);
+	}, []);
+
 	const handleSend = useCallback(
 		async (content: string) => {
 			await send(content);
@@ -109,7 +120,7 @@ export default function App() {
 				<DocumentViewer
 					document={document}
 					currentPage={currentPage}
-					onPageChange={setCurrentPage}
+					onPageChange={handlePageChange}
 				/>
 			</div>
 		</TooltipProvider>
