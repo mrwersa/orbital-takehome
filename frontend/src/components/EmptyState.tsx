@@ -15,9 +15,12 @@ export function EmptyState({ onUpload, uploading }: EmptyStateProps) {
 			<h2 className="mb-2 text-lg font-semibold text-neutral-800">
 				Upload a document to get started
 			</h2>
-			<p className="mb-8 max-w-sm text-center text-sm text-neutral-500">
+			<p className="mb-2 max-w-sm text-center text-sm text-neutral-500">
 				Ask questions about leases, title reports, contracts, and other legal
 				documents
+			</p>
+			<p className="mb-8 text-xs text-neutral-400">
+				Answers are checked against the document itself.
 			</p>
 			<DocumentUpload onUpload={onUpload} uploading={uploading} />
 		</div>
