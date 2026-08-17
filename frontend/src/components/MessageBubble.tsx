@@ -149,16 +149,23 @@ export function MessageBubble({
 					<div className="mt-1.5 flex flex-col gap-1.5">
 						{message.citations.map((citation, index) => (
 							<CitationCard
-								key={`${citation.page}-${citation.quote}`}
+								// Position, not content: the backend doesn't dedupe a
+								// message's own proposed quotes, so two cards in the
+								// same message can otherwise share an identical
+								// page+quote and be indistinguishable by content.
+								key={`${message.id}-${index}`}
 								citation={citation}
 								onCitationClick={(clicked) =>
-									onCitationClick?.({ ...clicked, messageId: message.id })
+									onCitationClick?.({
+										...clicked,
+										messageId: message.id,
+										index,
+									})
 								}
 								isActive={
 									currentPage === citation.page &&
 									activeCitation?.messageId === message.id &&
-									activeCitation?.page === citation.page &&
-									activeCitation?.quote === citation.quote
+									activeCitation?.index === index
 								}
 								staggerIndex={index}
 							/>

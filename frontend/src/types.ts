@@ -12,12 +12,15 @@ export interface Citation {
 	clause?: string | null;
 }
 
-// A citation identified by which message it belongs to, not just its page
-// and quote -- two different messages can genuinely cite the identical
-// text on the identical page, and page+quote alone can't tell those two
-// citation instances apart.
+// A citation identified by which message it belongs to and its position
+// within that message's citation list, not just its page and quote --
+// two different messages can genuinely cite the identical text on the
+// identical page, and the backend doesn't dedupe a message's own proposed
+// quotes, so even one message can contain the same page+quote pair twice.
+// Neither case is distinguishable by content alone.
 export interface ActiveCitation extends Citation {
 	messageId: string;
+	index: number;
 }
 
 export interface Message {
