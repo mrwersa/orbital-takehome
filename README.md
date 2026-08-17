@@ -9,7 +9,7 @@ citation jumps the viewer to its page.
 - **`SPEC.md`** — what I set out to build, and what I deliberately left out
 - **`DECISIONS.md`** — why it works this way, what it does not do, what I would build next
 - **`PART1.md`** — the written question
-- **Walkthrough** — LOOM_URL
+- **Walkthrough** — [Loom](https://www.loom.com/share/433992618d994330b4de163f4c096255)
 
 Measured over ten independent runs against the sample lease
 (`scripts/eval.sh`): every run answering the break-clause question cited page 7
