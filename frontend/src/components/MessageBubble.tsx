@@ -1,8 +1,56 @@
 import { motion } from "framer-motion";
 import { Bot } from "lucide-react";
+import { useState } from "react";
 import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
-import type { Message } from "../types";
+import type { Citation, Message } from "../types";
+
+// Above this, a quote is long enough to reliably wrap past two lines at the
+// citation card's width and is worth clamping; below it, the clamp/toggle
+// machinery would just be UI for text that already fits.
+const QUOTE_CLAMP_THRESHOLD = 130;
+
+interface CitationCardProps {
+	citation: Citation;
+	onCitationClick?: (page: number) => void;
+}
+
+function CitationCard({ citation, onCitationClick }: CitationCardProps) {
+	const [expanded, setExpanded] = useState(false);
+	const isLong = citation.quote.length > QUOTE_CLAMP_THRESHOLD;
+
+	return (
+		<div className="rounded-lg border border-neutral-200 bg-white text-xs transition-colors hover:border-neutral-300 hover:bg-neutral-50">
+			<button
+				type="button"
+				onClick={() => onCitationClick?.(citation.page)}
+				className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left"
+			>
+				<span className="mt-0.5 flex-shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500">
+					p.{citation.page}
+				</span>
+				<span
+					className={`text-neutral-600 ${isLong && !expanded ? "line-clamp-2" : ""}`}
+				>
+					"{citation.quote}"
+				</span>
+			</button>
+			{isLong && (
+				// Sibling to the button above, not nested inside it -- a button
+				// inside a button is invalid HTML and breaks keyboard/screen
+				// reader semantics. Toggling here never moves anything above
+				// this card, only whatever comes after it in normal flow.
+				<button
+					type="button"
+					onClick={() => setExpanded((value) => !value)}
+					className="block w-full px-2.5 pb-1.5 text-left text-[10px] font-medium text-neutral-400 hover:text-neutral-600"
+				>
+					{expanded ? "Show less" : "Show more"}
+				</button>
+			)}
+		</div>
+	);
+}
 
 interface MessageBubbleProps {
 	message: Message;
@@ -72,17 +120,11 @@ export function MessageBubble({
 				{message.citations && message.citations.length > 0 && (
 					<div className="mt-1.5 flex flex-col gap-1.5">
 						{message.citations.map((citation) => (
-							<button
+							<CitationCard
 								key={`${citation.page}-${citation.quote}`}
-								type="button"
-								onClick={() => onCitationClick?.(citation.page)}
-								className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-left text-xs transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-							>
-								<span className="mt-0.5 flex-shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500">
-									p.{citation.page}
-								</span>
-								<span className="text-neutral-600">"{citation.quote}"</span>
-							</button>
+								citation={citation}
+								onCitationClick={onCitationClick}
+							/>
 						))}
 					</div>
 				)}
