@@ -290,3 +290,20 @@ def test_clause_is_none_when_no_clause_number_precedes_the_quote(document_text: 
     assert len(resolved) == 1
     assert resolved[0].page == 1
     assert resolved[0].clause is None
+
+
+def test_clause_is_none_for_a_line_starting_with_an_unrelated_number(
+    document_text: str,
+) -> None:
+    """Regression: page 2 of the sample lease opens with the solicitor's
+    address, "14 Bedford Row, London WC1R 4ED" -- a bare line-starting
+    integer with no clause structure anywhere on the page. That must not
+    be read as "clause 14"."""
+    quote = "14 Bedford Row, London WC1R 4ED"
+    assert quote in document_text, "sample document's page 2 no longer contains this address"
+
+    resolved = verify_citations(document_text, [quote])
+
+    assert len(resolved) == 1
+    assert resolved[0].page == 2
+    assert resolved[0].clause is None

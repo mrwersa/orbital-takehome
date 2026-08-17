@@ -38,7 +38,17 @@ def _split_pages(document_text: str) -> list[tuple[int, str]]:
 # ("8.3.1 The Tenant's right..."); a cross-reference to another clause
 # mid-sentence ("in accordance with clause 8.2.") never does. Anchoring on
 # line start is what keeps this from picking up the wrong number.
-_CLAUSE_LABEL_RE = re.compile(r"(?m)^(\d+(?:\.\d+){0,3})\s")
+#
+# The dot is required, not optional: a bare integer opening a line is far
+# more likely to be something else entirely -- the sample lease itself has
+# "14 Bedford Row, London WC1R 4ED" as a standalone line on its cover page,
+# which a bare-digit pattern reads as "clause 14" on a page with no clauses
+# at all. Real sub-clause numbering in this kind of document is reliably
+# dotted ("1.1", "8.3.1"); a top-level, undotted clause is conventionally
+# spelled out ("Section 8"), not printed as a lone digit. Showing no clause
+# number is better than showing a wrong one, same as a quote that can't be
+# verified is dropped rather than guessed at.
+_CLAUSE_LABEL_RE = re.compile(r"(?m)^(\d+(?:\.\d+){1,3})\s")
 
 
 def _find_original_position(page_text: str, quote: str) -> int | None:
