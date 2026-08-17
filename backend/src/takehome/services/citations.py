@@ -33,9 +33,50 @@ def _split_pages(document_text: str) -> list[tuple[int, str]]:
     return [(int(parts[i]), parts[i + 1]) for i in range(1, len(parts), 2)]
 
 
+# A clause/sub-clause label ("1.1", "8.3.1", ...) at the start of its own
+# line. Confirmed against the sample lease: real labels always open a line
+# ("8.3.1 The Tenant's right..."); a cross-reference to another clause
+# mid-sentence ("in accordance with clause 8.2.") never does. Anchoring on
+# line start is what keeps this from picking up the wrong number.
+_CLAUSE_LABEL_RE = re.compile(r"(?m)^(\d+(?:\.\d+){0,3})\s")
+
+
+def _find_original_position(page_text: str, quote: str) -> int | None:
+    """Best-effort: locate quote inside page_text's ORIGINAL (non-normalized)
+    layout, tolerating whitespace differences but not the soft-hyphen/
+    wrap-hyphen artifacts _normalize_for_match handles. Only used to find
+    roughly where to start looking for a clause label — if it fails, the
+    citation still resolves and is still shown, just without a clause
+    number, rather than guessing at one.
+    """
+    words = quote.strip().split()
+    if not words:
+        return None
+    pattern = r"\s+".join(re.escape(word) for word in words)
+    match = re.search(pattern, page_text)
+    return match.start() if match else None
+
+
+def _find_clause_number(page_text: str, quote: str) -> str | None:
+    """The nearest clause/sub-clause label appearing before quote on its
+    page, or None if quote's position can't be found or nothing precedes
+    it. Read from the document's own layout, never from the model."""
+    position = _find_original_position(page_text, quote)
+    if position is None:
+        return None
+
+    clause: str | None = None
+    for label_match in _CLAUSE_LABEL_RE.finditer(page_text):
+        if label_match.start() > position:
+            break
+        clause = label_match.group(1)
+    return clause
+
+
 class Citation(BaseModel):
     quote: str
     page: int
+    clause: str | None = None
 
 
 class CitationProposal(BaseModel):
@@ -83,9 +124,15 @@ def verify_citations(document_text: str, quotes: list[str]) -> list[Citation]:
     whitespace/hyphenation normalization), inside a single page's text. Its
     page number always comes from that match, never from the caller. A quote
     that resolves on no page is dropped, not returned.
+
+    Its clause number, if any, is read from the same page's original text —
+    the nearest clause/sub-clause label preceding the quote — and is best
+    effort: a quote that can't be located in the original layout (see
+    _find_original_position) resolves with clause=None rather than a guess.
     """
-    normalized_pages = [
-        (page_num, _normalize_for_match(page_text)) for page_num, page_text in _split_pages(document_text)
+    pages = [
+        (page_num, page_text, _normalize_for_match(page_text))
+        for page_num, page_text in _split_pages(document_text)
     ]
 
     resolved: list[Citation] = []
@@ -93,9 +140,10 @@ def verify_citations(document_text: str, quotes: list[str]) -> list[Citation]:
         normalized_quote = _normalize_for_match(quote)
         if not normalized_quote:
             continue
-        for page_num, normalized_page in normalized_pages:
+        for page_num, page_text, normalized_page in pages:
             if normalized_quote in normalized_page:
-                resolved.append(Citation(quote=quote.strip(), page=page_num))
+                clause = _find_clause_number(page_text, quote)
+                resolved.append(Citation(quote=quote.strip(), page=page_num, clause=clause))
                 break
 
     return resolved
