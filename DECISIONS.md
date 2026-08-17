@@ -103,6 +103,10 @@ asserting "the model cites correctly" would be asserting a rate from a
 sample of one, and would go red on someone else's machine for reasons
 that have nothing to do with the code.
 
+The twenty runs behind these numbers are committed as `eval-runs.jsonl`,
+one JSON object per run. Every figure above can be recounted from it
+rather than taken on trust, which is the whole point of writing them down.
+
 ## What the measurement itself is worth
 
 Counting distinct citation sets by eye is fine for spotting that
