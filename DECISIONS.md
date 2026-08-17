@@ -119,30 +119,42 @@ which makes no model calls of its own and only reads runs collected
 elsewhere, because I did not want the measuring tool driving the thing
 being measured.
 
-It came back **undecided**, and that is the honest headline. Across three
-repeats of each question nothing flipped: both questions gave the same
-verdict every time, zero disagreements in two comparable pairs. But the
-confidence interval on that flip rate is [0.0%, 65.8%] against a 5%
-precision target, so the tool refuses to certify it and says so in as
-many words. It is right to. Reporting "0% verdict flips" off six runs
-would be exactly the over-claim the library exists to catch, and I am not
-going to quote a number my own tool declined to stand behind. Settling a
-5% flip rate needs far more runs than this exercise justifies spending.
+Two layers, two different answers.
 
-What it does sharpen is *where* the instability lives. At the verdict
-layer, supported versus not-supported, nothing moved in either question.
-Everything the ten-run eval found sits below that: which provisions get
-quoted, and where each quote is cut. Those are three different failures
-with three different costs, and before separating them out they were all
-just "it varies". Its second check separately confirmed the pipeline is
-discriminating rather than returning a constant, two distinct verdicts
-across two distinct questions, which is a sanity check on the harness and
-not a stability result.
+At the **verdict** layer, supported versus not-supported, nothing
+flipped: zero disagreements across ten pairs. But the interval on that is
+[0.0%, 27.8%] against a 5% precision target, so the tool declines to
+certify it and reports undecided in as many words. It is right to.
+Quoting "no verdict flips" off twenty runs would be exactly the
+over-claim the library exists to catch, and I am not publishing a number
+my own tool refused to stand behind. Settling a 5% flip rate needs far
+more runs than this exercise justifies.
 
-One integration note, since it says something about the interface: the
-tool will not accept a bare boolean as a decision. Rather than redefine
-`answer_supported`, which should keep meaning what the API returns, the
-JSONL carries a derived `verdict` string alongside it.
+At the **citation** layer it does settle, and the answer is that the
+feature is stochastic: 2 of 10 pairs disagreed, interval [5.7%, 51.0%],
+whose lower bound clears the target. Both disagreements were on the
+answerable question. The unanswerable one returned an identical empty
+citation list all ten times. Read that result as the interval rather than
+as "20%" — the point estimate moves with how runs happen to be paired,
+and the interval is the part that is actually established.
+
+So the chip the user sees is measurably unstable, while the supported
+flag above it is not measurably unstable and also not certified stable.
+Those are different claims with different consequences, and I could not
+have separated them by reading the eval output. That is the entire reason
+for running an instrument over it instead of eyeballing it, and it is the
+sequencing mistake I made once already: build the thing that decides, then
+discover afterwards that nobody had established whether its inputs were
+stable enough for the decision to mean anything.
+
+Two pieces of off-label use worth declaring. The layer that accepts a
+list is meant for tool-call trajectories and compares them in order,
+which is correct for a trajectory and wrong for a citation set, where
+response order is noise. So citation labels are sorted before comparison,
+and that derivation happens in a temporary file rather than in
+`eval-runs.jsonl`. Separately, the tool will not accept a bare boolean as
+a decision, so the JSONL carries a derived `verdict` string alongside
+`answer_supported`, which keeps meaning exactly what the API returns.
 
 ## Verification failure degrades to unverified, not to trusted
 
