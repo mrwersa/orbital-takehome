@@ -10,22 +10,33 @@ import type { Citation, Message } from "../types";
 // machinery would just be UI for text that already fits.
 const QUOTE_CLAMP_THRESHOLD = 130;
 
+// Stagger step between one citation card and the next, in seconds.
+const CITATION_STAGGER_SECONDS = 0.04;
+
 interface CitationCardProps {
 	citation: Citation;
 	onCitationClick?: (page: number) => void;
 	isActive: boolean;
+	staggerIndex: number;
 }
 
 function CitationCard({
 	citation,
 	onCitationClick,
 	isActive,
+	staggerIndex,
 }: CitationCardProps) {
 	const [expanded, setExpanded] = useState(false);
 	const isLong = citation.quote.length > QUOTE_CLAMP_THRESHOLD;
 
 	return (
-		<div
+		<motion.div
+			initial={{ opacity: 0, y: 4 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{
+				duration: 0.15,
+				delay: staggerIndex * CITATION_STAGGER_SECONDS,
+			}}
 			className={`rounded-lg border text-xs transition-colors hover:bg-neutral-50 ${
 				isActive
 					? "border-neutral-900 bg-neutral-50"
@@ -59,7 +70,7 @@ function CitationCard({
 					{expanded ? "Show less" : "Show more"}
 				</button>
 			)}
-		</div>
+		</motion.div>
 	);
 }
 
@@ -132,12 +143,13 @@ export function MessageBubble({
 				</div>
 				{message.citations && message.citations.length > 0 && (
 					<div className="mt-1.5 flex flex-col gap-1.5">
-						{message.citations.map((citation) => (
+						{message.citations.map((citation, index) => (
 							<CitationCard
 								key={`${citation.page}-${citation.quote}`}
 								citation={citation}
 								onCitationClick={onCitationClick}
 								isActive={citation.page === currentPage}
+								staggerIndex={index}
 							/>
 						))}
 					</div>
