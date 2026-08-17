@@ -31,6 +31,17 @@ Rewrite features outside the citation work. Add a state management library
 or a vector store. Change docker-compose.yml or the justfile beyond the test
 mount and the test recipe.
 
+## Mine, not yours
+
+`DECISIONS.md` and `PART1.md` are mine. Do not author them, and do not add to
+them unless I hand you the text. When I say something goes in `DECISIONS.md`
+as an accepted limitation, that closes the topic. Do not propose an
+implementation for it again.
+
+Never invent a number. If a document has a placeholder where a measurement
+goes, leave the placeholder. Eval results come from a run I watched, not from
+what a plausible result would look like.
+
 ## Facts about this codebase, so you do not assume otherwise
 
 The chat agent has no `output_type` and streams plain text. Extracted PDF

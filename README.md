@@ -1,3 +1,26 @@
+# Orbital take-home — verified citations
+
+Answers now carry citations that are checked against the uploaded document
+before the user sees them. The model proposes quotes; the server resolves each
+one by exact match against the stored page text and derives the page number
+itself. A quote that does not resolve is dropped, never shown. Clicking a
+citation jumps the viewer to its page.
+
+- **`SPEC.md`** — what I set out to build, and what I deliberately left out
+- **`DECISIONS.md`** — why it works this way, what it does not do, what I would build next
+- **`PART1.md`** — the written question
+- **Walkthrough** — LOOM_URL
+
+Measured over ten independent runs against the sample lease
+(`scripts/eval.sh`): the answerable question cited the same four provisions of
+Section 8, page 7, in nine of ten runs, differing in the tenth only in where
+the quotes were cut. The unanswerable question returned no citations and a
+plain not-confirmed state in FILL_ME of ten.
+
+The original brief follows, unchanged.
+
+---
+
 # Orbital — Product Engineering Take-Home
 
 Welcome! This is a take-home assessment for a Product Engineering role at Orbital.
