@@ -56,11 +56,20 @@ class VerifiedAnswer(BaseModel):
     """What checking an already-generated answer against the document
     produces: the citations worth showing, the quotes worth keeping a
     record of but never showing, and whether the document backs the
-    answer at all."""
+    answer at all.
+
+    proposed_count and resolved_count are the raw exact-match numbers —
+    how many quotes the proposer offered and how many of those actually
+    resolved against the document text. They exist so a caller
+    logging/measuring resolution rate gets the true text-matching result,
+    independent of which of those resolved quotes end up in citations.
+    """
 
     citations: list[Citation]
     rejected_quotes: list[str]
     answer_supported: bool
+    proposed_count: int
+    resolved_count: int
 
 
 ProposeCitations = Callable[[str, str, str], Awaitable[CitationProposal]]
@@ -118,9 +127,9 @@ async def verify_answer(
     and network-free.
 
     A citation only ever comes from verify_citations, never from the
-    proposer directly. If the proposer judges the document doesn't support
-    the answer, or none of its proposed quotes actually resolve,
-    answer_supported is False — that is a distinct, deliberate state, not an
+    proposer directly. answer_supported is True only when the proposer said
+    the document supports the answer AND at least one of its proposed
+    quotes actually resolves — that is a distinct, deliberate state, not an
     answer that merely happens to carry zero citations.
 
     supported=False always wins, even if the proposer also handed back
@@ -130,6 +139,23 @@ async def verify_answer(
     all. Those quotes are still recorded in rejected_quotes — proposed, and
     discarded — they're just never checked against the document, since
     whether they'd resolve doesn't matter once supported is False.
+
+    A partial resolve (some proposed quotes match, some don't) shows the
+    ones that do and records the rest as rejected. This is not a guarantee
+    that every claim in the answer has evidence — the proposer can omit a
+    quote for a claim entirely, and nothing here can detect that, since
+    verification only ever checks quotes it was actually given. An earlier
+    version of this function required every proposed quote to resolve
+    before showing any of them, specifically to close that gap — it didn't:
+    the proposer omitting a quote for a fabricated claim sails through an
+    all-or-nothing check exactly as easily as a partial one, since there's
+    nothing to detect. What the stricter check actually did was cost real,
+    correct citations whenever the proposer's own quote selection was
+    merely incomplete (confirmed live: a fully-supported, previously
+    reliable multi-claim answer started intermittently coming back with no
+    citations at all). Closing the real gap needs the proposer to judge and
+    report support per claim, not one bool for the whole answer — see
+    DECISIONS.md.
     """
     if propose_citations is None:
         # Local import: takehome.services.llm imports CitationProposal from
@@ -144,24 +170,30 @@ async def verify_answer(
 
     proposal = await proposer(document_text, question, answer)
 
-    if not proposal.supported:
+    resolved = verify_citations(document_text, proposal.quotes)
+    proposed_count = len(proposal.quotes)
+    resolved_count = len(resolved)
+
+    if not proposal.supported or resolved_count == 0:
         return VerifiedAnswer(
             citations=[],
             rejected_quotes=[quote.strip() for quote in proposal.quotes],
             answer_supported=False,
+            proposed_count=proposed_count,
+            resolved_count=resolved_count,
         )
 
-    resolved = verify_citations(document_text, proposal.quotes)
     resolved_quotes = {citation.quote for citation in resolved}
     rejected_quotes = [
         quote.strip() for quote in proposal.quotes if quote.strip() not in resolved_quotes
     ]
-    answer_supported = len(resolved) > 0
 
     return VerifiedAnswer(
         citations=resolved,
         rejected_quotes=rejected_quotes,
-        answer_supported=answer_supported,
+        answer_supported=True,
+        proposed_count=proposed_count,
+        resolved_count=resolved_count,
     )
 
 

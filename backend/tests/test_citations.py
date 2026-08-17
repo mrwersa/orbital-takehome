@@ -45,15 +45,24 @@ def _extract_document_text(pdf_path: Path) -> str:
     return "\n\n".join(pages)
 
 
+def _pick_real_lines(document_text: str, count: int) -> list[str]:
+    """Return `count` distinct lines copied verbatim from the document,
+    each guaranteed to be an exact substring of document_text."""
+    body = _PAGE_MARKER_RE.sub("", document_text)
+    lines: list[str] = []
+    for line in body.splitlines():
+        stripped = line.strip()
+        if len(stripped) >= 30 and stripped not in lines:
+            lines.append(stripped)
+            if len(lines) == count:
+                return lines
+    raise AssertionError(f"sample document did not yield {count} usable lines for this test")
+
+
 def _pick_real_line(document_text: str) -> str:
     """Return a line copied verbatim from the document, guaranteed to be an
     exact substring of document_text."""
-    body = _PAGE_MARKER_RE.sub("", document_text)
-    for line in body.splitlines():
-        stripped = line.strip()
-        if len(stripped) >= 30:
-            return stripped
-    raise AssertionError("sample document did not yield a usable line for this test")
+    return _pick_real_lines(document_text, 1)[0]
 
 
 @pytest.fixture(scope="module")
@@ -200,3 +209,39 @@ async def test_citation_proposer_receives_the_original_question(document_text: s
 
     assert received["question"] == question
     assert result.answer_supported is False
+
+
+async def test_partial_resolution_shows_the_quotes_that_resolve(document_text: str) -> None:
+    """The proposer says supported=true and hands back three quotes; two are
+    real lines from the document, one is fabricated. Partial grounding is a
+    documented, accepted limitation (see DECISIONS.md) rather than something
+    this function can detect or prevent — it only ever checks quotes it was
+    actually given, and a proposer that silently omits a quote for some
+    other claim is invisible to it either way. Given that, withholding the
+    quotes that DO resolve doesn't close that gap, it just throws away
+    correct citations — so a partial resolve shows exactly what resolved
+    and records the rest as rejected.
+    """
+    real_quote_1, real_quote_2 = _pick_real_lines(document_text, 2)
+    fake_quote = (
+        "The Landlord irrevocably waives all rights to inspect the Premises "
+        "for the remainder of the Term."
+    )
+
+    async def fake_propose_partial_match(
+        document_text: str, question: str, answer: str
+    ) -> CitationProposal:
+        return CitationProposal(supported=True, quotes=[real_quote_1, fake_quote, real_quote_2])
+
+    result = await verify_answer(
+        document_text,
+        "Summarise the key terms of the lease.",
+        "Some real terms, and one fabricated one.",
+        propose_citations=fake_propose_partial_match,
+    )
+
+    assert result.answer_supported is True
+    assert {citation.quote for citation in result.citations} == {real_quote_1, real_quote_2}
+    assert result.rejected_quotes == [fake_quote]
+    assert result.proposed_count == 3
+    assert result.resolved_count == 2
