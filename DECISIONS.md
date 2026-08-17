@@ -131,3 +131,16 @@ I also considered a spec-driven scaffold for this work and didn't use
 one. At this size it would have produced ceremony rather than control —
 `SPEC.md` plus `AGENTS.md` plus a failing test per slice gave me the same
 guardrails at a fraction of the overhead.
+
+I looked at running this through an established eval framework rather
+than a shell script, and didn't. Those frameworks grade answer quality —
+faithfulness, relevancy, hallucination — and they do it by asking a
+second model to judge. Neither half fits here. Whether a quote is really
+in the document is already settled by exact string match, so there is no
+judgement to delegate; adding a probabilistic judge on top of a
+deterministic check buys nothing and can only introduce disagreement.
+What I actually needed to know was whether repeated identical runs agree
+with each other, which is a variance question, and none of them treat
+that as a first-class measurement. A graded framework becomes the right
+tool once support is tracked per claim rather than per answer, because
+then there is a real per-claim judgement worth scoring.
