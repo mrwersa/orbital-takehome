@@ -11,6 +11,7 @@ interface ChatWindowProps {
 	error: string | null;
 	streaming: boolean;
 	streamingContent: string;
+	verifying: boolean;
 	hasDocument: boolean;
 	conversationId: string | null;
 	onSend: (content: string) => void;
@@ -24,6 +25,7 @@ export function ChatWindow({
 	error,
 	streaming,
 	streamingContent,
+	verifying,
 	hasDocument,
 	conversationId,
 	onSend,
@@ -105,7 +107,9 @@ export function ChatWindow({
 							onCitationClick={onCitationClick}
 						/>
 					))}
-					{streaming && <StreamingBubble content={streamingContent} />}
+					{streaming && (
+						<StreamingBubble content={streamingContent} verifying={verifying} />
+					)}
 				</div>
 			</div>
 

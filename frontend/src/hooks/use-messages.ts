@@ -8,6 +8,7 @@ export function useMessages(conversationId: string | null) {
 	const [error, setError] = useState<string | null>(null);
 	const [streaming, setStreaming] = useState(false);
 	const [streamingContent, setStreamingContent] = useState("");
+	const [verifying, setVerifying] = useState(false);
 	const abortRef = useRef<AbortController | null>(null);
 
 	const refresh = useCallback(async () => {
@@ -52,6 +53,7 @@ export function useMessages(conversationId: string | null) {
 			setMessages((prev) => [...prev, userMessage]);
 			setStreaming(true);
 			setStreamingContent("");
+			setVerifying(false);
 			setError(null);
 
 			try {
@@ -96,10 +98,16 @@ export function useMessages(conversationId: string | null) {
 							} else if (parsed.type === "content" && parsed.content) {
 								accumulated += parsed.content;
 								setStreamingContent(accumulated);
+							} else if (parsed.type === "verifying") {
+								// The answer is done; the citation check is
+								// starting. Only ever sent when a check will
+								// actually run.
+								setVerifying(true);
 							} else if (parsed.type === "message" && parsed.message) {
 								// Final message from server
 								setMessages((prev) => [...prev, parsed.message as Message]);
 								accumulated = "";
+								setVerifying(false);
 							} else if (parsed.content && !parsed.type) {
 								// Fallback: plain content field
 								accumulated += parsed.content;
@@ -134,6 +142,7 @@ export function useMessages(conversationId: string | null) {
 			} finally {
 				setStreaming(false);
 				setStreamingContent("");
+				setVerifying(false);
 			}
 		},
 		[conversationId, streaming],
@@ -145,6 +154,7 @@ export function useMessages(conversationId: string | null) {
 		error,
 		streaming,
 		streamingContent,
+		verifying,
 		send,
 		refresh,
 	};

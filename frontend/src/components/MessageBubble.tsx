@@ -93,9 +93,10 @@ export function MessageBubble({
 
 interface StreamingBubbleProps {
 	content: string;
+	verifying?: boolean;
 }
 
-export function StreamingBubble({ content }: StreamingBubbleProps) {
+export function StreamingBubble({ content, verifying }: StreamingBubbleProps) {
 	return (
 		<div className="flex gap-3 py-1.5">
 			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-neutral-900">
@@ -119,7 +120,13 @@ export function StreamingBubble({ content }: StreamingBubbleProps) {
 						/>
 					</div>
 				)}
-				<span className="inline-block h-4 w-0.5 animate-pulse bg-neutral-400" />
+				{verifying ? (
+					<p className="mt-1.5 text-xs text-neutral-400">
+						Checking the quotes against the document…
+					</p>
+				) : (
+					<span className="inline-block h-4 w-0.5 animate-pulse bg-neutral-400" />
+				)}
 			</div>
 		</div>
 	);

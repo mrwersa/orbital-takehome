@@ -58,11 +58,16 @@ async def _verify_and_persist_citations(
     document_text: str | None,
     question: str,
     full_response: str,
-    had_error: bool,
     conversation_id: str,
 ) -> Message:
     """Verify citations against document_text and persist the result onto
     the already-saved message row, then return the updated row.
+
+    document_text is None when there is nothing to verify (no document, or
+    the answer is our own canned error message) — the caller decides that
+    once, before calling this, and reuses the same decision to emit the
+    "verifying" SSE event. Two separate copies of that condition would risk
+    telling the client a check is starting and then not running one.
 
     Callers must run this via asyncio.shield. If the client disconnects
     while this is in flight, the SSE generator awaiting it gets cancelled —
@@ -78,7 +83,7 @@ async def _verify_and_persist_citations(
     rejected_quotes: list[str] = []
     answer_supported: bool | None = None
 
-    if document_text and full_response and not had_error:
+    if document_text is not None:
         try:
             verified = await asyncio.wait_for(
                 verify_answer(document_text, question, full_response),
@@ -281,6 +286,18 @@ async def send_message(
 
         message_id = assistant_message.id
 
+        # Whether there is genuinely something to verify, decided once and
+        # reused below for both the "verifying" event and the check itself
+        # — see _verify_and_persist_citations' docstring for why that
+        # matters. Announcing a check that then never runs would be a lie.
+        text_to_verify = (
+            document_text if (document_text and full_response and not had_error) else None
+        )
+
+        if text_to_verify is not None:
+            verifying_data = json.dumps({"type": "verifying"})
+            yield f"data: {verifying_data}\n\n"
+
         # Verify citations against the stored document text now that the
         # answer itself is safely persisted, shielded so a client
         # disconnect can't cancel it before the update below runs — see
@@ -289,7 +306,7 @@ async def send_message(
         # normal await.
         verify_task = asyncio.ensure_future(
             _verify_and_persist_citations(
-                message_id, document_text, body.content, full_response, had_error, conversation_id
+                message_id, text_to_verify, body.content, full_response, conversation_id
             )
         )
         assistant_message = await asyncio.shield(verify_task)
