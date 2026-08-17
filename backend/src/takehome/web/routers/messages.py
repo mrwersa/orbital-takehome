@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator
 from datetime import datetime
@@ -22,6 +23,13 @@ logger = structlog.get_logger()
 
 router = APIRouter(tags=["messages"])
 
+# Bounds how long the SSE stream will wait on citation verification after
+# the answer has finished generating. Real calls take a few seconds; this
+# is generous headroom, not a target — past it we degrade the same way an
+# outright verification failure does, rather than leaving the client
+# waiting on the final event indefinitely.
+_CITATION_VERIFICATION_TIMEOUT_SECONDS: float = 30.0
+
 
 # --------------------------------------------------------------------------- #
 # Schemas
@@ -43,6 +51,81 @@ class MessageOut(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str
+
+
+async def _verify_and_persist_citations(
+    message_id: str,
+    document_text: str | None,
+    question: str,
+    full_response: str,
+    had_error: bool,
+    conversation_id: str,
+) -> Message:
+    """Verify citations against document_text and persist the result onto
+    the already-saved message row, then return the updated row.
+
+    Callers must run this via asyncio.shield. If the client disconnects
+    while this is in flight, the SSE generator awaiting it gets cancelled —
+    but asyncio.CancelledError is not an Exception, so a plain try/except
+    around the awaiting code would NOT stop that cancellation from also
+    aborting this function before it reaches the update below, leaving the
+    message stuck at answer_supported=None (looking exactly like an
+    ordinary, unchecked answer) forever, with nothing left to ever finish
+    the job. Shielding this call lets it keep running to completion in the
+    background even when nothing is left listening for its result.
+    """
+    citations: list[Citation] = []
+    rejected_quotes: list[str] = []
+    answer_supported: bool | None = None
+
+    if document_text and full_response and not had_error:
+        try:
+            verified = await asyncio.wait_for(
+                verify_answer(document_text, question, full_response),
+                timeout=_CITATION_VERIFICATION_TIMEOUT_SECONDS,
+            )
+            citations = verified.citations
+            rejected_quotes = verified.rejected_quotes
+            answer_supported = verified.answer_supported
+            # proposed/resolved/dropped are the raw exact-match numbers,
+            # not len(citations)/len(rejected_quotes) — a partial resolve
+            # (say 1 of 2 quotes) still shows zero citations and records
+            # both quotes as rejected (nothing shown), but only one of
+            # them actually failed to match the document text. Logging
+            # len(rejected_quotes) here would report that as 0 resolved,
+            # 2 dropped instead of the true 1 resolved, 1 dropped.
+            logger.info(
+                "Citations verified",
+                conversation_id=conversation_id,
+                proposed=verified.proposed_count,
+                resolved=verified.resolved_count,
+                dropped=verified.proposed_count - verified.resolved_count,
+            )
+        except Exception:
+            # Covers a real failure and a timeout alike. Either way we
+            # couldn't verify this answer — that's a distinct state from
+            # "nothing needed verifying" (the no-document/canned-error
+            # cases, which leave answer_supported as None) and must not
+            # render as an ordinary, trustworthy answer just because
+            # verification didn't get to run.
+            logger.exception(
+                "Failed to verify citations",
+                conversation_id=conversation_id,
+            )
+            answer_supported = False
+
+    from takehome.db.session import async_session as session_factory
+
+    async with session_factory() as update_session:
+        result = await update_session.execute(select(Message).where(Message.id == message_id))
+        assistant_message = result.scalar_one()
+        assistant_message.sources_cited = len(citations)
+        assistant_message.citations = [c.model_dump() for c in citations]
+        assistant_message.rejected_quotes = rejected_quotes
+        assistant_message.answer_supported = answer_supported
+        await update_session.commit()
+        await update_session.refresh(assistant_message)
+        return assistant_message
 
 
 # --------------------------------------------------------------------------- #
@@ -159,38 +242,11 @@ async def send_message(
             event_data = json.dumps({"type": "content", "content": error_msg})
             yield f"data: {event_data}\n\n"
 
-        # Verify citations against the stored document text. Skipped (not
-        # just empty) when there's no document or the answer is our own
-        # canned error message — there's nothing real to check either way,
-        # and answer_supported stays None to mark "not checked" rather than
-        # "checked and unsupported".
-        citations: list[Citation] = []
-        rejected_quotes: list[str] = []
-        answer_supported: bool | None = None
-
-        if document_text and full_response and not had_error:
-            try:
-                verified = await verify_answer(document_text, body.content, full_response)
-                citations = verified.citations
-                rejected_quotes = verified.rejected_quotes
-                answer_supported = verified.answer_supported
-                logger.info(
-                    "Citations verified",
-                    conversation_id=conversation_id,
-                    proposed=len(citations) + len(rejected_quotes),
-                    resolved=len(citations),
-                    dropped=len(rejected_quotes),
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to verify citations",
-                    conversation_id=conversation_id,
-                )
-
-        sources = len(citations)
-
-        # Save the assistant message to the database.
-        # We need a fresh session since the outer one may have been closed.
+        # Save the assistant message immediately, before citation
+        # verification, so a slow or hung verification call — or a client
+        # disconnecting while it's in flight — can't lose an answer that
+        # already finished streaming and was already shown to the user.
+        # Citation fields start empty/unknown and are filled in below.
         from takehome.db.session import async_session as session_factory
 
         async with session_factory() as save_session:
@@ -198,10 +254,10 @@ async def send_message(
                 conversation_id=conversation_id,
                 role="assistant",
                 content=full_response,
-                sources_cited=sources,
-                citations=[c.model_dump() for c in citations],
-                rejected_quotes=rejected_quotes,
-                answer_supported=answer_supported,
+                sources_cited=0,
+                citations=[],
+                rejected_quotes=[],
+                answer_supported=None,
             )
             save_session.add(assistant_message)
             await save_session.commit()
@@ -223,36 +279,51 @@ async def send_message(
                         conversation_id=conversation_id,
                     )
 
-            # Send the final message event with the complete assistant message.
-            # rejected_quotes is persisted (above) but deliberately never
-            # goes out over the wire — it's a record of what we rejected,
-            # not something the UI shows.
-            message_data = json.dumps(
-                {
-                    "type": "message",
-                    "message": {
-                        "id": assistant_message.id,
-                        "conversation_id": assistant_message.conversation_id,
-                        "role": assistant_message.role,
-                        "content": assistant_message.content,
-                        "sources_cited": assistant_message.sources_cited,
-                        "citations": assistant_message.citations,
-                        "answer_supported": assistant_message.answer_supported,
-                        "created_at": assistant_message.created_at.isoformat(),
-                    },
-                }
-            )
-            yield f"data: {message_data}\n\n"
+        message_id = assistant_message.id
 
-            # Send the done signal
-            done_data = json.dumps(
-                {
-                    "type": "done",
-                    "sources_cited": sources,
-                    "message_id": assistant_message.id,
-                }
+        # Verify citations against the stored document text now that the
+        # answer itself is safely persisted, shielded so a client
+        # disconnect can't cancel it before the update below runs — see
+        # _verify_and_persist_citations' docstring for why that matters.
+        # If the client is still connected, this just behaves like a
+        # normal await.
+        verify_task = asyncio.ensure_future(
+            _verify_and_persist_citations(
+                message_id, document_text, body.content, full_response, had_error, conversation_id
             )
-            yield f"data: {done_data}\n\n"
+        )
+        assistant_message = await asyncio.shield(verify_task)
+
+        # Send the final message event with the complete assistant message.
+        # rejected_quotes is persisted (in _verify_and_persist_citations)
+        # but deliberately never goes out over the wire — it's a record of
+        # what we rejected, not something the UI shows.
+        message_data = json.dumps(
+            {
+                "type": "message",
+                "message": {
+                    "id": assistant_message.id,
+                    "conversation_id": assistant_message.conversation_id,
+                    "role": assistant_message.role,
+                    "content": assistant_message.content,
+                    "sources_cited": assistant_message.sources_cited,
+                    "citations": assistant_message.citations,
+                    "answer_supported": assistant_message.answer_supported,
+                    "created_at": assistant_message.created_at.isoformat(),
+                },
+            }
+        )
+        yield f"data: {message_data}\n\n"
+
+        # Send the done signal
+        done_data = json.dumps(
+            {
+                "type": "done",
+                "sources_cited": assistant_message.sources_cited,
+                "message_id": assistant_message.id,
+            }
+        )
+        yield f"data: {done_data}\n\n"
 
     return StreamingResponse(
         event_stream(),

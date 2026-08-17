@@ -62,18 +62,26 @@ export function MessageBubble({
 							: "prose"
 					}
 				>
+					{message.answer_supported === false && (
+						<p className="mb-1.5 text-xs font-medium text-neutral-500">
+							The document does not confirm the following:
+						</p>
+					)}
 					<Streamdown>{message.content}</Streamdown>
 				</div>
 				{message.citations && message.citations.length > 0 && (
-					<div className="mt-1.5 flex flex-wrap gap-1.5">
+					<div className="mt-1.5 flex flex-col gap-1.5">
 						{message.citations.map((citation) => (
 							<button
 								key={`${citation.page}-${citation.quote}`}
 								type="button"
 								onClick={() => onCitationClick?.(citation.page)}
-								className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-500 transition-colors hover:bg-neutral-200"
+								className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-left text-xs transition-colors hover:border-neutral-300 hover:bg-neutral-50"
 							>
-								Page {citation.page}
+								<span className="mt-0.5 flex-shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500">
+									p.{citation.page}
+								</span>
+								<span className="text-neutral-600">"{citation.quote}"</span>
 							</button>
 						))}
 					</div>
