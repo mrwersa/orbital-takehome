@@ -49,7 +49,9 @@ function CitationCard({
 				className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left"
 			>
 				<span className="mt-0.5 flex-shrink-0 rounded-full bg-neutral-800 px-2 py-0.5 text-[10px] font-medium text-white">
-					p.{citation.page}
+					{citation.clause
+						? `§${citation.clause} · p.${citation.page}`
+						: `p.${citation.page}`}
 				</span>
 				<span
 					className={`min-w-0 break-words text-neutral-600 ${isLong && !expanded ? "line-clamp-2" : ""}`}
